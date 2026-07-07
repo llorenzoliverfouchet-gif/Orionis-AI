@@ -442,14 +442,30 @@ function addEmptyAiMsg() {
 }
 
 // POLLINATIONS CALL (tentative sans clé, via le paramètre referrer du tier Anonymous)
-async function callGemini(messages) {
-  const lastUserMsg = messages[messages.length - 1].content;
+function buildGeminiUrl(lastUserMsg, model) {
   const url = new URL(`${GEMINI_BASE}/${encodeURIComponent(lastUserMsg)}`);
+  if (model) url.searchParams.set('model', model);
   url.searchParams.set('system', THEMES[currentTheme].system);
   url.searchParams.set('seed', Math.floor(Math.random() * 1000000));
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('API Error: ' + res.status);
-  return await res.text();
+  return url.toString();
+}
+
+async function callGemini(messages) {
+  const lastUserMsg = messages[messages.length - 1].content;
+
+  // "openai-fast" (gpt-5-nano) répond nettement plus vite que le modèle par défaut ;
+  // si jamais il n'est pas disponible, on retombe sur le modèle par défaut (openai).
+  try {
+    const res = await fetch(buildGeminiUrl(lastUserMsg, 'openai-fast'));
+    if (!res.ok) throw new Error('fast model unavailable');
+    const text = await res.text();
+    if (!text.trim()) throw new Error('empty response');
+    return text;
+  } catch (e) {
+    const res = await fetch(buildGeminiUrl(lastUserMsg, null));
+    if (!res.ok) throw new Error('API Error: ' + res.status);
+    return await res.text();
+  }
 }
 
 function getImageUrl(prompt) {
