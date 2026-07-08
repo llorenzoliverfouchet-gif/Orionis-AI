@@ -4,6 +4,13 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Orionis AI · 2.0 Studios</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<link rel="icon" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Orionis AI"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -76,12 +83,20 @@ header{display:flex;align-items:center;gap:16px;
 .status .dot{width:7px;height:7px;flex-shrink:0;border-radius:50%;background:var(--light);
   box-shadow:0 0 10px var(--light);animation:blink 2s ease-in-out infinite}
 
+#install-btn{display:none;align-items:center;gap:6px;flex-shrink:0;
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;
+  padding:6px 14px;font-size:.72rem;color:var(--primary);cursor:pointer;
+  font-family:inherit;transition:all .25s}
+#install-btn:hover{border-color:var(--primary);box-shadow:0 0 12px var(--primary)}
+#install-btn.show{display:flex}
+
 /* Petits écrans : le header est trop chargé pour tenir sur une seule ligne sans se déformer */
 @media (max-width:480px){
   header{gap:10px;padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right))}
   .brand-desc,.studio{display:none}
   .model-select{padding:5px 10px;font-size:.66rem}
   .status span{display:none}
+  #install-btn span{display:none}
 }
 
 /* Messages */
@@ -221,6 +236,9 @@ body.techno .bubble,body.techno #inp{font-family:'Fira Code',monospace;font-size
       <div class="dot"></div>
       <span id="status">En ligne</span>
     </div>
+    <button id="install-btn" title="Installer l'app / créer un raccourci">
+      ⬇ <span>Installer</span>
+    </button>
   </header>
 
   <div id="msgs"></div>
@@ -549,6 +567,44 @@ inp.addEventListener('keydown', (e) => {
     e.preventDefault();
     handleSend();
   }
+});
+
+// PWA : installation / raccourci navigateur
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+const installBtn = document.getElementById('install-btn');
+let deferredInstallPrompt = null;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!isStandalone) installBtn.classList.add('show');
+});
+
+if (isIOS && !isStandalone) {
+  installBtn.classList.add('show');
+}
+
+installBtn.addEventListener('click', async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBtn.classList.remove('show');
+  } else if (isIOS) {
+    addMsg('ai', "Pour installer Orionis AI sur iPhone/iPad : appuyez sur le bouton **Partager** de Safari, puis **Sur l'écran d'accueil**.");
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  installBtn.classList.remove('show');
+  deferredInstallPrompt = null;
 });
 
 // Init
